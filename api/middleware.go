@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -11,8 +12,8 @@ import (
 )
 
 type TokenClaims struct {
-	UserID int64
-	Scope  string
+	UserID int    `json:"user_id"`
+	Scope  string `json:"scope"`
 	*jwt.RegisteredClaims
 }
 
@@ -28,12 +29,12 @@ const (
 )
 
 // GenerateToken generates a JWT token for the given user ID.
-func GenerateToken(userID int64) (*TokensResponse, error) {
+func GenerateToken(userID int) (*TokensResponse, error) {
 	claims := TokenClaims{
 		UserID: userID,
 		Scope:  ScopeAccessToken,
 		RegisteredClaims: &jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * time.Second)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(30 * 10000 * time.Hour)),
 			Issuer:    env.ISSUER,
 			Audience:  jwt.ClaimStrings{env.ISSUER},
 		},
@@ -75,6 +76,7 @@ func AuthMiddleware(ctx huma.Context, next func(huma.Context)) {
 		return []byte(env.SECRET_KEY), nil
 	})
 	if err != nil {
+		slog.Error("invalid token", "error", err)
 		huma.WriteErr(API, ctx, http.StatusUnauthorized, "invalid token", nil)
 		return
 	}

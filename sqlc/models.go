@@ -5,34 +5,34 @@
 package sqlc
 
 import (
-	"github.com/jackc/pgx/v5/pgtype"
+	"time"
 )
 
 type Post struct {
-	ID        int32
-	UserID    pgtype.Int4
-	Title     string
-	Content   pgtype.Text
-	Images    []string
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	ID        int32      `db:"id" json:"id"`
+	UserID    *int       `db:"user_id" json:"user_id"`
+	Title     string     `db:"title" json:"title"`
+	Content   *string    `db:"content" json:"content"`
+	Images    []string   `db:"images" json:"images"`
+	CreatedAt *time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type Profile struct {
-	ID        int32
-	UserID    pgtype.Int4
-	Bio       pgtype.Text
-	PhotoUrl  pgtype.Text
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	ID        int32      `db:"id" json:"id"`
+	UserID    *int       `db:"user_id" json:"user_id"`
+	Bio       *string    `db:"bio" json:"bio"`
+	PhotoUrl  *string    `db:"photo_url" json:"photo_url"`
+	CreatedAt *time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type User struct {
-	ID        int32
-	FullName  string
-	Username  string
-	Password  string
-	Stage     int32
-	CreatedAt pgtype.Timestamp
-	UpdatedAt pgtype.Timestamp
+	ID        int32      `db:"id" json:"id"`
+	FullName  string     `db:"full_name" json:"full_name"`
+	Username  string     `db:"username" json:"username"`
+	Password  string     `db:"password" json:"password"`
+	Stage     int        `db:"stage" json:"stage"`
+	CreatedAt *time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt *time.Time `db:"updated_at" json:"updated_at"`
 }

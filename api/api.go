@@ -18,6 +18,13 @@ func Init() {
 
 	cfg := huma.DefaultConfig("students-archive-api", "1.0.0")
 	cfg.DocsRenderer = huma.DocsRendererScalar
+	cfg.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+		"Authorization": {
+			Type:         "http",
+			Scheme:       "bearer",
+			BearerFormat: "JWT",
+		},
+	}
 	router := http.NewServeMux()
 	API = humago.New(router, cfg)
 

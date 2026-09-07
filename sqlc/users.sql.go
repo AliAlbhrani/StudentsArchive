@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -16,12 +17,13 @@ RETURNING id
 `
 
 type CreateUserParams struct {
-	FullName string
-	Username string
-	Password string
-	Stage    int32
+	FullName string `db:"full_name" json:"full_name"`
+	Username string `db:"username" json:"username"`
+	Password string `db:"password" json:"password"`
+	Stage    int    `db:"stage" json:"stage"`
 }
 
+// Create a new user
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (int32, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.FullName,
@@ -32,4 +34,72 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (int32, 
 	var id int32
 	err := row.Scan(&id)
 	return id, err
+}
+
+const createUserProfile = `-- name: CreateUserProfile :exec
+INSERT INTO profiles (user_id, photo_url, bio)
+VALUES ($1, $2, $3)
+ON CONFLICT (user_id) DO UPDATE SET photo_url = $2, bio = $3
+`
+
+type CreateUserProfileParams struct {
+	UserID   *int    `db:"user_id" json:"user_id"`
+	PhotoUrl *string `db:"photo_url" json:"photo_url"`
+	Bio      *string `db:"bio" json:"bio"`
+}
+
+// Create a user profile
+func (q *Queries) CreateUserProfile(ctx context.Context, arg CreateUserProfileParams) error {
+	_, err := q.db.Exec(ctx, createUserProfile, arg.UserID, arg.PhotoUrl, arg.Bio)
+	return err
+}
+
+const getUserProfile = `-- name: GetUserProfile :one
+SELECT u.full_name, u.username, p.photo_url, p.bio, u.created_at, u.stage
+FROM users u
+LEFT JOIN profiles p ON p.user_id = u.id
+WHERE u.id = $1
+`
+
+type GetUserProfileRow struct {
+	FullName  string     `db:"full_name" json:"full_name"`
+	Username  string     `db:"username" json:"username"`
+	PhotoUrl  *string    `db:"photo_url" json:"photo_url"`
+	Bio       *string    `db:"bio" json:"bio"`
+	CreatedAt *time.Time `db:"created_at" json:"created_at"`
+	Stage     int        `db:"stage" json:"stage"`
+}
+
+// Get user profile by user id
+func (q *Queries) GetUserProfile(ctx context.Context, userID int32) (GetUserProfileRow, error) {
+	row := q.db.QueryRow(ctx, getUserProfile, userID)
+	var i GetUserProfileRow
+	err := row.Scan(
+		&i.FullName,
+		&i.Username,
+		&i.PhotoUrl,
+		&i.Bio,
+		&i.CreatedAt,
+		&i.Stage,
+	)
+	return i, err
+}
+
+const login = `-- name: Login :one
+SELECT id, password
+FROM users
+WHERE username = $1
+`
+
+type LoginRow struct {
+	ID       int32  `db:"id" json:"id"`
+	Password string `db:"password" json:"password"`
+}
+
+// Login a user
+func (q *Queries) Login(ctx context.Context, username string) (LoginRow, error) {
+	row := q.db.QueryRow(ctx, login, username)
+	var i LoginRow
+	err := row.Scan(&i.ID, &i.Password)
+	return i, err
 }
