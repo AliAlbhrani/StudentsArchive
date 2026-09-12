@@ -1,0 +1,49 @@
+name: nextcloud_data
+services:
+  db:
+    image: postgres:16
+    restart: always
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=nextcloud123456
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+    networks:
+      - nextcloud_net
+
+  redis:
+    image: redis:alpine
+    restart: always
+    networks:
+      - nextcloud_net
+
+  app:
+    image: nextcloud:latest
+    restart: always
+    ports:
+      - "8080:80"
+    links:
+      - db
+      - redis
+    volumes:
+      - nextcloud_data:/var/www/html
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_DB=nextcloud
+      - POSTGRES_USER=nextcloud
+      - POSTGRES_PASSWORD=nextcloud123456
+      - REDIS_HOST=redis
+      - NEXTCLOUD_TRUSTED_DOMAINS=localhost
+    depends_on:
+      - db
+      - redis
+    networks:
+      - nextcloud_net
+
+volumes:
+  db_data:
+  nextcloud_data:
+
+networks:
+  nextcloud_net:
