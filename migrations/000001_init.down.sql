@@ -1,7 +1,9 @@
 BEGIN;
 
+DROP TABLE IF EXISTS profiles;
+DROP TABLE IF EXISTS ban_history;
 DROP TABLE IF EXISTS posts;
-DROP TABLE IF EXISTS students;
+DROP TABLE IF EXISTS users;
 DROP INDEX IF EXISTS idx_posts_title;
 DROP INDEX IF EXISTS idx_posts_content;
 DROP INDEX IF EXISTS idx_posts_user_id;

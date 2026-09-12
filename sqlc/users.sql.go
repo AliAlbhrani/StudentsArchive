@@ -8,6 +8,8 @@ package sqlc
 import (
 	"context"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -54,11 +56,33 @@ func (q *Queries) CreateUserProfile(ctx context.Context, arg CreateUserProfilePa
 	return err
 }
 
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT id, password, banned
+FROM users
+WHERE username = $1
+AND deleted_at IS NULL
+`
+
+type GetUserByUsernameRow struct {
+	ID       int32       `db:"id" json:"id"`
+	Password string      `db:"password" json:"password"`
+	Banned   pgtype.Bool `db:"banned" json:"banned"`
+}
+
+// Get user id and password by username for login
+func (q *Queries) GetUserByUsername(ctx context.Context, username string) (GetUserByUsernameRow, error) {
+	row := q.db.QueryRow(ctx, getUserByUsername, username)
+	var i GetUserByUsernameRow
+	err := row.Scan(&i.ID, &i.Password, &i.Banned)
+	return i, err
+}
+
 const getUserProfile = `-- name: GetUserProfile :one
 SELECT u.full_name, u.username, p.photo_url, p.bio, u.created_at, u.stage
 FROM users u
 LEFT JOIN profiles p ON p.user_id = u.id
 WHERE u.id = $1
+AND deleted_at IS NULL
 `
 
 type GetUserProfileRow struct {
@@ -82,24 +106,5 @@ func (q *Queries) GetUserProfile(ctx context.Context, userID int32) (GetUserProf
 		&i.CreatedAt,
 		&i.Stage,
 	)
-	return i, err
-}
-
-const login = `-- name: Login :one
-SELECT id, password
-FROM users
-WHERE username = $1
-`
-
-type LoginRow struct {
-	ID       int32  `db:"id" json:"id"`
-	Password string `db:"password" json:"password"`
-}
-
-// Login a user
-func (q *Queries) Login(ctx context.Context, username string) (LoginRow, error) {
-	row := q.db.QueryRow(ctx, login, username)
-	var i LoginRow
-	err := row.Scan(&i.ID, &i.Password)
 	return i, err
 }

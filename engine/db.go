@@ -2,11 +2,13 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 
 	"github.com/AliAlbhrani/StudentsArchive/env"
 	"github.com/AliAlbhrani/StudentsArchive/sqlc"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -37,3 +39,11 @@ var _ = func() bool {
 
 	return true
 }()
+
+func IsUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
+}

@@ -11,6 +11,7 @@ import (
 	"github.com/AliAlbhrani/StudentsArchive/engine"
 	"github.com/AliAlbhrani/StudentsArchive/sqlc"
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -34,7 +35,7 @@ type CreateUserDto struct {
 }
 
 // Register handles user registration
-func register(ctx context.Context, createUser *CreateUserDto) (*Success[TokensResponse], error) {
+func register(ctx context.Context, createUser *CreateUserDto) (*Response[TokensResponse], error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(createUser.Body.Password), bcrypt.DefaultCost)
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to hash password", "error", err)
@@ -46,6 +47,10 @@ func register(ctx context.Context, createUser *CreateUserDto) (*Success[TokensRe
 		Password: string(hashedPassword),
 	})
 	if err != nil {
+		if engine.IsUniqueViolation(err) {
+			slog.ErrorContext(ctx, "failed to create user profile", "error", err)
+			return nil, huma.Error400BadRequest("username already taken")
+		}
 		slog.ErrorContext(ctx, "failed to create user", "error", err)
 		return nil, huma.Error400BadRequest("failed to create user")
 	}
@@ -66,7 +71,7 @@ type CreateUserProfileDto struct {
 }
 
 // CreateUserProfile handles creating a user profile
-func CreateUserProfile(ctx context.Context, createUserProfile *CreateUserProfileDto) (*Success[string], error) {
+func CreateUserProfile(ctx context.Context, createUserProfile *CreateUserProfileDto) (*Response[string], error) {
 	var ok bool
 	createUserProfile.UserID, ok = ctx.Value(userIDKey).(int)
 	if !ok {
@@ -96,7 +101,7 @@ type GetUserProfileDto struct {
 }
 
 // GetUserProfile returns the user profile by user id
-func GetUserProfile(ctx context.Context, _ *struct{}) (*Success[GetUserProfileDto], error) {
+func GetUserProfile(ctx context.Context, _ *struct{}) (*Response[GetUserProfileDto], error) {
 	userID, ok := ctx.Value(userIDKey).(int)
 	if !ok {
 		slog.ErrorContext(ctx, "user id not found")
@@ -127,14 +132,17 @@ type LoginDto struct {
 	}
 }
 
-func login(ctx context.Context, dto *LoginDto) (*Success[*TokensResponse], error) {
-	user, err := engine.Queries.Login(ctx, dto.Body.Username)
+func login(ctx context.Context, dto *LoginDto) (*Response[*TokensResponse], error) {
+	user, err := engine.Queries.GetUserByUsername(ctx, dto.Body.Username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, huma.Error401Unauthorized("invalid username")
 		}
 		slog.ErrorContext(ctx, "failed to login", "error", err)
 		return nil, huma.Error500InternalServerError("failed to login")
+	}
+	if user.Banned.Bool {
+		return nil, huma.Error401Unauthorized("user is banned")
 	}
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(dto.Body.Password)); err != nil {
 		slog.ErrorContext(ctx, "invalid password")
@@ -148,10 +156,40 @@ func login(ctx context.Context, dto *LoginDto) (*Success[*TokensResponse], error
 	return SuccessResponse(tokens, 200), nil
 }
 
-func InitUsersRoutes() {
+func GetUserPosts(ctx context.Context, i *PaginationRequest) (*PaginatedResponse[sqlc.Post], error) {
+	userID := GetUserID(ctx)
+	if userID == 0 {
+		return nil, unauthorized
+	}
+	posts, err := engine.Queries.GetUserPosts(ctx, sqlc.GetUserPostsParams{
+		UserID: &userID,
+		Offset: i.Offset(),
+		Limit:  i.Limit,
+		Search: i.Search,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, notFound
+		}
+		slog.ErrorContext(ctx, "failed to get user posts", "error", err.Error())
+		return nil, somthingWentWrong
+	}
+	total, err := engine.Queries.GetUserPostsCount(ctx, sqlc.GetUserPostsCountParams{
+		UserID: &userID,
+		Search: i.Search,
+	})
+	if err != nil {
+		slog.ErrorContext(ctx, "failed to get user posts count", "error", err.Error())
+		return nil, somthingWentWrong
+	}
+	return PaginationResponse(posts, total, http.StatusOK), nil
+}
+
+func initUsersRoutes() {
 	usersRoutes := huma.NewGroup(API, "/users")
 	Handle(usersRoutes, http.MethodPost, "/register", register)
 	Handle(usersRoutes, http.MethodPost, "/login", login)
 	AuthHandle(usersRoutes, http.MethodPost, "/profile", CreateUserProfile)
 	AuthHandle(usersRoutes, http.MethodGet, "/profile", GetUserProfile)
+	AuthHandle(usersRoutes, http.MethodGet, "/posts", GetUserPosts)
 }

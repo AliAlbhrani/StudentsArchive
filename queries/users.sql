@@ -15,10 +15,13 @@ ON CONFLICT (user_id) DO UPDATE SET photo_url = @photo_url, bio = @bio;
 SELECT u.full_name, u.username, p.photo_url, p.bio, u.created_at, u.stage
 FROM users u
 LEFT JOIN profiles p ON p.user_id = u.id
-WHERE u.id = @user_id;
+WHERE u.id = @user_id
+AND deleted_at IS NULL
+;
 
--- name: Login :one
--- Login a user
-SELECT id, password
+-- name: GetUserByUsername :one
+-- Get user id and password by username for login
+SELECT id, password, banned
 FROM users
-WHERE username = @username;
+WHERE username = @username
+AND deleted_at IS NULL;

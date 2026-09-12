@@ -6,13 +6,15 @@ BEGIN;
         username VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         stage INT NOT NULL,
+        banned BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP,
         updated_at TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS profiles (
         id SERIAL PRIMARY KEY,
-        user_id INT REFERENCES users(id),
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
         bio TEXT,
         photo_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -21,13 +23,22 @@ BEGIN;
 
     CREATE TABLE IF NOT EXISTS posts (
         id SERIAL PRIMARY KEY,
-        user_id INT REFERENCES users(id),
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
         title VARCHAR(255) NOT NULL,
         content TEXT,
         images TEXT[],
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP,
         updated_at TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS ban_history (
+        id SERIAL PRIMARY KEY,
+        user_id INT REFERENCES users(id) ON DELETE CASCADE,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+
 
     CREATE INDEX IF NOT EXISTS idx_posts_title ON posts(title);
     CREATE INDEX IF NOT EXISTS idx_posts_content ON posts(content);

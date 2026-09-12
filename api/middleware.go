@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -94,4 +95,11 @@ func AuthMiddleware(ctx huma.Context, next func(huma.Context)) {
 	}
 	ctx = huma.WithValue(ctx, userIDKey, claims.UserID)
 	next(ctx)
+}
+
+func GetUserID(ctx context.Context) int {
+	if userID, ok := ctx.Value(userIDKey).(int); ok {
+		return userID
+	}
+	return 0
 }
