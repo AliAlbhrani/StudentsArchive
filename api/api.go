@@ -102,4 +102,5 @@ func (p *PaginationRequest) Offset() int {
 func initRoutes() {
 	initUsersRoutes()
 	initPostsRouter()
+	initStorageRouter()
 }

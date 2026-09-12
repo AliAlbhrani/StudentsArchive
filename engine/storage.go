@@ -1,9 +1,10 @@
 package engine
 
 import (
-	"bytes"
 	"io"
+	"mime"
 	"os"
+	"path/filepath"
 
 	"github.com/AliAlbhrani/StudentsArchive/env"
 	"github.com/AliAlbhrani/StudentsArchive/helpers"
@@ -34,25 +35,45 @@ var _ = func() bool {
 	return true
 }()
 
-func (c *CSClient) Upload(file io.Reader) (string, error) {
-	objectName := helpers.GenerateUniqueName()
+func (c *CSClient) Upload(file io.Reader, originalFilename string) (string, error) {
+	ext := filepath.Ext(originalFilename) // e.g. ".png"
+	objectName := helpers.GenerateUniqueName() + ext
 	objectPath := c.Path + "/" + objectName
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		return "", err
-	}
-	err = c.Client.Write(objectPath, fileBytes, os.FileMode(0644))
+
+	err := c.Client.WriteStream(objectPath, file, os.FileMode(0644))
 	if err != nil {
 		return "", err
 	}
 	return objectName, nil
 }
 
-func (c *CSClient) Download(objectName string) (io.Reader, error) {
+type DownloadResult struct {
+	Body        io.ReadCloser
+	Size        int64
+	ContentType string
+}
+
+func (c *CSClient) Download(objectName string) (*DownloadResult, error) {
 	objectPath := c.Path + "/" + objectName
-	fileBytes, err := c.Client.Read(objectPath)
+
+	stream, err := c.Client.ReadStream(objectPath)
 	if err != nil {
 		return nil, err
 	}
-	return io.NopCloser(bytes.NewReader(fileBytes)), nil
+
+	info, err := c.Client.Stat(objectPath)
+	if err != nil {
+		stream.Close()
+		return nil, err
+	}
+
+	contentType := mime.TypeByExtension(filepath.Ext(objectName))
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	return &DownloadResult{
+		Body:        stream,
+		Size:        info.Size(),
+		ContentType: contentType,
+	}, nil
 }
